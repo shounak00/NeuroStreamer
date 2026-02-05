@@ -29,7 +29,16 @@ public class UIController : MonoBehaviour
     public Toggle coronalToggle;
     public Toggle sagittalToggle;
     
-    [Header("Text Elements")]
+    [Header("Labels (for real-time value display)")]
+    public TextMeshProUGUI minThresholdLabel;
+    public TextMeshProUGUI maxThresholdLabel;
+    public TextMeshProUGUI axialLabel;
+    public TextMeshProUGUI coronalLabel;
+    public TextMeshProUGUI sagittalLabel;
+    public TextMeshProUGUI stepSizeLabel;
+    public TextMeshProUGUI densityLabel;
+    
+    [Header("Info Text Elements")]
     public TextMeshProUGUI fpsText;
     public TextMeshProUGUI memoryText;
     public TextMeshProUGUI coordinatesText;
@@ -49,6 +58,17 @@ public class UIController : MonoBehaviour
         mainCamera = Camera.main;
         
         // Setup slider listeners
+        SetupSliders();
+        
+        // Setup toggle listeners
+        SetupToggles();
+        
+        // Initialize label values
+        UpdateAllLabels();
+    }
+    
+    void SetupSliders()
+    {
         if (minThresholdSlider != null)
         {
             minThresholdSlider.onValueChanged.AddListener(OnMinThresholdChanged);
@@ -90,8 +110,10 @@ public class UIController : MonoBehaviour
             densitySlider.onValueChanged.AddListener(OnDensityChanged);
             densitySlider.value = volumeRenderer.densityMultiplier;
         }
-        
-        // Setup toggle listeners
+    }
+    
+    void SetupToggles()
+    {
         if (volumeToggle != null)
         {
             volumeToggle.onValueChanged.AddListener(OnVolumeToggleChanged);
@@ -139,7 +161,7 @@ public class UIController : MonoBehaviour
             
             // Color code based on performance
             if (fps >= 60)
-                fpsText.color = Color.green;
+                fpsText.color = new Color(0f, 1f, 0.53f); // Green #00FF88
             else if (fps >= 30)
                 fpsText.color = Color.yellow;
             else
@@ -163,6 +185,7 @@ public class UIController : MonoBehaviour
     {
         if (coordinatesText == null) return;
         
+        // Simple center screen ray for now
         Ray ray = mainCamera.ScreenPointToRay(new Vector3(Screen.width / 2, Screen.height / 2, 0));
         RaycastHit hit;
         
@@ -193,16 +216,16 @@ public class UIController : MonoBehaviour
             coordinatesText.text = stringBuilder.ToString();
             
             // Get voxel value
-            float[] volumeData = dataGenerator.GetVolumeData();
-            if (volumeData != null && volumeData.Length > 0)
+            if (voxelInfoText != null)
             {
-                int index = voxelCoord.x + voxelCoord.y * dimensions.x + voxelCoord.z * dimensions.x * dimensions.y;
-                if (index >= 0 && index < volumeData.Length)
+                float[] volumeData = dataGenerator.GetVolumeData();
+                if (volumeData != null && volumeData.Length > 0)
                 {
-                    float value = volumeData[index];
-                    
-                    if (voxelInfoText != null)
+                    int index = voxelCoord.x + voxelCoord.y * dimensions.x + voxelCoord.z * dimensions.x * dimensions.y;
+                    if (index >= 0 && index < volumeData.Length)
                     {
+                        float value = volumeData[index];
+                        
                         stringBuilder.Clear();
                         stringBuilder.Append("Density: ");
                         stringBuilder.Append((value * 100).ToString("F1"));
@@ -225,7 +248,7 @@ public class UIController : MonoBehaviour
         if (thresholdText != null)
         {
             stringBuilder.Clear();
-            stringBuilder.Append("Threshold Range: ");
+            stringBuilder.Append("Range: ");
             stringBuilder.Append((volumeRenderer.minThreshold * 100).ToString("F0"));
             stringBuilder.Append("% - ");
             stringBuilder.Append((volumeRenderer.maxThreshold * 100).ToString("F0"));
@@ -234,10 +257,37 @@ public class UIController : MonoBehaviour
         }
     }
     
+    void UpdateAllLabels()
+    {
+        if (minThresholdLabel != null)
+            minThresholdLabel.text = $"Min Threshold: {volumeRenderer.minThreshold:F2}";
+        
+        if (maxThresholdLabel != null)
+            maxThresholdLabel.text = $"Max Threshold: {volumeRenderer.maxThreshold:F2}";
+        
+        if (axialLabel != null)
+            axialLabel.text = $"Axial Slice: {(volumeRenderer.axialSlicePosition * 100):F0}%";
+        
+        if (coronalLabel != null)
+            coronalLabel.text = $"Coronal Slice: {(volumeRenderer.coronalSlicePosition * 100):F0}%";
+        
+        if (sagittalLabel != null)
+            sagittalLabel.text = $"Sagittal Slice: {(volumeRenderer.sagittalSlicePosition * 100):F0}%";
+        
+        if (stepSizeLabel != null)
+            stepSizeLabel.text = $"Step Size: {volumeRenderer.stepSize:F3}";
+        
+        if (densityLabel != null)
+            densityLabel.text = $"Density: {volumeRenderer.densityMultiplier:F1}x";
+    }
+    
     // Slider callbacks
     void OnMinThresholdChanged(float value)
     {
         volumeRenderer.SetMinThreshold(value);
+        if (minThresholdLabel != null)
+            minThresholdLabel.text = $"Min Threshold: {value:F2}";
+        
         if (value > volumeRenderer.maxThreshold)
         {
             volumeRenderer.SetMaxThreshold(value);
@@ -249,6 +299,9 @@ public class UIController : MonoBehaviour
     void OnMaxThresholdChanged(float value)
     {
         volumeRenderer.SetMaxThreshold(value);
+        if (maxThresholdLabel != null)
+            maxThresholdLabel.text = $"Max Threshold: {value:F2}";
+        
         if (value < volumeRenderer.minThreshold)
         {
             volumeRenderer.SetMinThreshold(value);
@@ -257,29 +310,83 @@ public class UIController : MonoBehaviour
         }
     }
     
-    void OnAxialSliceChanged(float value) => volumeRenderer.SetAxialSlicePosition(value);
-    void OnCoronalSliceChanged(float value) => volumeRenderer.SetCoronalSlicePosition(value);
-    void OnSagittalSliceChanged(float value) => volumeRenderer.SetSagittalSlicePosition(value);
+    void OnAxialSliceChanged(float value)
+    {
+        volumeRenderer.SetAxialSlicePosition(value);
+        if (axialLabel != null)
+            axialLabel.text = $"Axial Slice: {(value * 100):F0}%";
+    }
     
-    void OnStepSizeChanged(float value) => volumeRenderer.stepSize = value;
-    void OnDensityChanged(float value) => volumeRenderer.densityMultiplier = value;
+    void OnCoronalSliceChanged(float value)
+    {
+        volumeRenderer.SetCoronalSlicePosition(value);
+        if (coronalLabel != null)
+            coronalLabel.text = $"Coronal Slice: {(value * 100):F0}%";
+    }
+    
+    void OnSagittalSliceChanged(float value)
+    {
+        volumeRenderer.SetSagittalSlicePosition(value);
+        if (sagittalLabel != null)
+            sagittalLabel.text = $"Sagittal Slice: {(value * 100):F0}%";
+    }
+    
+    void OnStepSizeChanged(float value)
+    {
+        volumeRenderer.stepSize = value;
+        if (stepSizeLabel != null)
+            stepSizeLabel.text = $"Step Size: {value:F3}";
+    }
+    
+    void OnDensityChanged(float value)
+    {
+        volumeRenderer.densityMultiplier = value;
+        if (densityLabel != null)
+            densityLabel.text = $"Density: {value:F1}x";
+    }
     
     // Toggle callbacks
-    void OnVolumeToggleChanged(bool value) => volumeRenderer.showVolume = value;
-    void OnAxialToggleChanged(bool value) => volumeRenderer.showAxialSlice = value;
-    void OnCoronalToggleChanged(bool value) => volumeRenderer.showCoronalSlice = value;
-    void OnSagittalToggleChanged(bool value) => volumeRenderer.showSagittalSlice = value;
+    void OnVolumeToggleChanged(bool value)
+    {
+        volumeRenderer.showVolume = value;
+    }
     
-    // Button callbacks
-    public void OnRegenerateData() => dataGenerator.GenerateVolumeData();
+    void OnAxialToggleChanged(bool value)
+    {
+        volumeRenderer.showAxialSlice = value;
+    }
+    
+    void OnCoronalToggleChanged(bool value)
+    {
+        volumeRenderer.showCoronalSlice = value;
+    }
+    
+    void OnSagittalToggleChanged(bool value)
+    {
+        volumeRenderer.showSagittalSlice = value;
+    }
+    
+    // Button callbacks (add buttons if you want)
+    public void OnRegenerateData()
+    {
+        if (dataGenerator != null)
+        {
+            dataGenerator.GenerateVolumeData();
+            Debug.Log("Volume data regenerated!");
+        }
+    }
     
     public void OnResetThresholds()
     {
         volumeRenderer.SetMinThreshold(0.3f);
         volumeRenderer.SetMaxThreshold(1.0f);
         
-        if (minThresholdSlider != null) minThresholdSlider.value = 0.3f;
-        if (maxThresholdSlider != null) maxThresholdSlider.value = 1.0f;
+        if (minThresholdSlider != null)
+            minThresholdSlider.value = 0.3f;
+        if (maxThresholdSlider != null)
+            maxThresholdSlider.value = 1.0f;
+        
+        UpdateAllLabels();
     }
     
     public void OnResetSlices()
@@ -288,8 +395,178 @@ public class UIController : MonoBehaviour
         volumeRenderer.SetCoronalSlicePosition(0.5f);
         volumeRenderer.SetSagittalSlicePosition(0.5f);
         
-        if (axialSliceSlider != null) axialSliceSlider.value = 0.5f;
-        if (coronalSliceSlider != null) coronalSliceSlider.value = 0.5f;
-        if (sagittalSliceSlider != null) sagittalSliceSlider.value = 0.5f;
+        if (axialSliceSlider != null)
+            axialSliceSlider.value = 0.5f;
+        if (coronalSliceSlider != null)
+            coronalSliceSlider.value = 0.5f;
+        if (sagittalSliceSlider != null)
+            sagittalSliceSlider.value = 0.5f;
+        
+        UpdateAllLabels();
+    }
+    
+    public void OnResetAll()
+    {
+        OnResetThresholds();
+        OnResetSlices();
+        
+        volumeRenderer.stepSize = 0.01f;
+        volumeRenderer.densityMultiplier = 1.0f;
+        
+        if (stepSizeSlider != null)
+            stepSizeSlider.value = 0.01f;
+        if (densitySlider != null)
+            densitySlider.value = 1.0f;
+        
+        UpdateAllLabels();
+    }
+    
+    // Keyboard shortcuts (optional bonus)
+    void OnGUI()
+    {
+        Event e = Event.current;
+        
+        if (e.type == EventType.KeyDown)
+        {
+            // R = Regenerate
+            if (e.keyCode == KeyCode.R)
+                OnRegenerateData();
+            
+            // T = Reset Thresholds
+            if (e.keyCode == KeyCode.T)
+                OnResetThresholds();
+            
+            // S = Reset Slices
+            if (e.keyCode == KeyCode.S)
+                OnResetSlices();
+            
+            // Space = Toggle Volume
+            if (e.keyCode == KeyCode.Space && volumeToggle != null)
+                volumeToggle.isOn = !volumeToggle.isOn;
+        }
     }
 }
+
+/*
+```
+
+## Key Changes Made:
+
+1. **Added Label References** - Now updates labels in real-time as sliders move
+2. **Better Color Coding** - FPS text changes color (green/yellow/red)
+3. **Keyboard Shortcuts** - R, T, S, Space for quick actions
+4. **StringBuilder Optimization** - Better performance for text updates
+5. **Null Checks** - Won't crash if some UI elements are missing
+6. **Initial Value Sync** - Sliders start at correct positions
+
+## Optional: Add Buttons
+
+If you want buttons for regenerate/reset, add these to your UI:
+
+**Create Button Section:**
+
+1. **Right-click MainPanel → UI → Button - TextMeshPro**
+2. **Rename to "RegenerateButton"**
+3. **Position below toggles**
+4. **Settings:**
+```
+   Rect Transform:
+   ├─ Pos Y: -620
+   ├─ Width: 260, Height: 35
+   
+   Button:
+   ├─ Normal Color: RGB(42, 90, 122) - Dark blue
+   ├─ Highlighted: RGB(58, 122, 154) - Lighter blue
+   ├─ Pressed: RGB(26, 74, 106) - Darker blue
+   
+   Text (child):
+   ├─ Text: "REGENERATE DATA"
+   ├─ Font Size: 14
+   ├─ Color: White
+   └─ Style: Bold
+```
+
+5. **In Inspector, scroll to Button component:**
+   - Click "+" under OnClick()
+   - Drag UIManager GameObject to the slot
+   - Function dropdown: UIController → OnRegenerateData()
+
+**Repeat for Reset Buttons:**
+- ResetThresholdsButton (Pos Y: -665) → OnResetThresholds()
+- ResetSlicesButton (Pos Y: -710) → OnResetSlices()
+
+## Additional UI Enhancements (Optional):
+
+### Add Section Headers:
+
+Between sections, add divider lines:
+
+1. **Right-click MainPanel → UI → Image**
+2. **Rename to "Divider1"**
+3. **Settings:**
+```
+   Rect Transform:
+   ├─ Width: 280, Height: 1
+   ├─ Pos Y: -105 (between title and threshold)
+   
+   Image:
+   └─ Color: RGB(80, 80, 80, 100) - Gray, semi-transparent
+```
+
+### Add Section Title Text:
+
+1. **Right-click MainPanel → UI → Text - TextMeshPro**
+2. **Rename to "ThresholdTitle"**
+3. **Settings:**
+```
+   Text: "THRESHOLD CONTROLS"
+   Font Size: 10
+   Color: RGB(0, 212, 255, 200) - Cyan, slightly transparent
+   Font Style: Bold
+   Position: Above threshold section
+```
+
+Repeat for:
+- "SLICE POSITIONS"
+- "VISIBILITY"
+- "PERFORMANCE"
+
+## Wiring Up in Unity:
+
+1. **Select UIManager** (the GameObject with UIController script)
+2. **Drag all your UI elements to the corresponding fields:**
+```
+   References:
+   ├─ Volume Renderer: [VolumeSystem]
+   └─ Data Generator: [VolumeSystem]
+   
+   Sliders:
+   ├─ Min Threshold Slider: [MinThresholdSlider]
+   ├─ Max Threshold Slider: [MaxThresholdSlider]
+   ├─ Axial Slice Slider: [AxialSlider]
+   ├─ Coronal Slice Slider: [CoronalSlider]
+   ├─ Sagittal Slice Slider: [SagittalSlider]
+   ├─ Step Size Slider: [StepSizeSlider] (if you made one)
+   └─ Density Slider: [DensitySlider] (if you made one)
+   
+   Toggles:
+   ├─ Volume Toggle: [VolumeToggle]
+   ├─ Axial Toggle: [AxialToggle]
+   ├─ Coronal Toggle: [CoronalToggle]
+   └─ Sagittal Toggle: [SagittalToggle]
+   
+   Labels:
+   ├─ Min Threshold Label: [MinThresholdLabel]
+   ├─ Max Threshold Label: [MaxThresholdLabel]
+   ├─ Axial Label: [AxialLabel]
+   ├─ Coronal Label: [CoronalLabel]
+   └─ Sagittal Label: [SagittalLabel]
+   
+   Info Text:
+   ├─ FPS Text: [FPSText]
+   ├─ Memory Text: [MemoryText]
+   └─ Coordinates Text: [CoordinatesText]
+   
+   Crosshair:
+   ├─ Crosshair H: [CrosshairH]
+   └─ Crosshair V: [CrosshairV] */

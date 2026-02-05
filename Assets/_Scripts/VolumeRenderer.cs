@@ -64,8 +64,12 @@ public class VolumeRenderer : MonoBehaviour
         volumeRenderer = volumeCube.GetComponent<MeshRenderer>();
         volumeRenderer.material = volumeMaterial;
         
-        // Disable collider
-        Destroy(volumeCube.GetComponent<Collider>());
+        // Keep collider for UI raycasting but make it a trigger
+        BoxCollider collider = volumeCube.GetComponent<BoxCollider>();
+        if (collider != null)
+        {
+            collider.isTrigger = true;
+        }
     }
     
     void SetupSlicePlanes()
